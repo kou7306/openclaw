@@ -1,0 +1,37 @@
+{
+  "character": {
+    "name": "Clawd",
+    "theme": "default"
+  },
+  "llm": {
+    "claude": {
+      "model": "claude-opus-4-7",
+      "enabled": true
+    },
+    "ollama": {
+      "endpoint": "http://127.0.0.1:11434",
+      "model": "llama3.1:8b"
+    },
+    "embedding": {
+      "provider": "bge-m3",
+      "dimension": 1024,
+      "runtime": "ollama"
+    },
+    "cost_limit_usd_per_day": 5.0,
+    "cost_limit_usd_per_month": 100.0
+  },
+  "heartbeat": {
+    "enabled": true,
+    "interval_seconds": 2700
+  },
+  "ingestion": {
+    "sources": {
+      "git": { "enabled": false, "paths": [] },
+      "cursor": { "enabled": false },
+      "obsidian": { "enabled": false, "vaults": [] }
+    }
+  },
+  "privacy": {
+    "filevault_check": true
+  }
+}

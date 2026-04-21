@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  ai-clone daemon 用 LaunchAgent テンプレート。
+  配置先: ~/Library/LaunchAgents/ai.aiclone.daemon.plist
+  インストール後: launchctl load ~/Library/LaunchAgents/ai.aiclone.daemon.plist
+
+  <AICLONE_BIN> は install-launchagents.sh が実パスに差し替える想定。
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>ai.aiclone.daemon</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string><AICLONE_BIN></string>
+        <string>daemon</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string><HOME>/.aiclone</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+        <key>AICLONE_HOME</key>
+        <string><HOME>/.aiclone</string>
+        <key>NODE_ENV</key>
+        <string>production</string>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+        <key>Crashed</key>
+        <true/>
+    </dict>
+
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+
+    <key>StandardOutPath</key>
+    <string><HOME>/.aiclone/logs/daemon.stdout.log</string>
+
+    <key>StandardErrorPath</key>
+    <string><HOME>/.aiclone/logs/daemon.stderr.log</string>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+
+    <key>LowPriorityIO</key>
+    <true/>
+</dict>
+</plist>
