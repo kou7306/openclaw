@@ -1,0 +1,10 @@
+{
+  "id": "aiclone",
+  "name": "AI Clone",
+  "description": "kouta's personal AI partner — context engine, memory, heartbeat.",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  }
+}
