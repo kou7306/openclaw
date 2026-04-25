@@ -7,10 +7,10 @@
     "noUncheckedIndexedAccess": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "declaration": true,
-    "outDir": "../dist/src-aiclone",
-    "rootDir": "."
+    "declaration": false,
+    "noEmit": true,
+    "rootDir": ".."
   },
-  "include": ["./**/*.ts"],
+  "include": ["./**/*.ts", "../src/context-engine/types.ts"],
   "exclude": ["./**/*.test.ts"]
 }

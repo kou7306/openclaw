@@ -6,7 +6,7 @@ set -euo pipefail
 
 AICLONE_HOME="${AICLONE_HOME:-$HOME/.aiclone}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-TEMPLATES="$SCRIPT_DIR/../templates"
+TEMPLATES="$SCRIPT_DIR/../templates-aiclone"
 
 echo "Initializing $AICLONE_HOME"
 mkdir -p "$AICLONE_HOME/logs" "$AICLONE_HOME/sockets" "$AICLONE_HOME/inbox"
@@ -23,9 +23,10 @@ copy_if_missing() {
   fi
 }
 
-copy_if_missing "$TEMPLATES/persona.md"  "$AICLONE_HOME/persona.md"
-copy_if_missing "$TEMPLATES/working.md"  "$AICLONE_HOME/working.md"
-copy_if_missing "$TEMPLATES/config.json" "$AICLONE_HOME/config.json"
+copy_if_missing "$TEMPLATES/persona.md"        "$AICLONE_HOME/persona.md"
+copy_if_missing "$TEMPLATES/working.md"        "$AICLONE_HOME/working.md"
+copy_if_missing "$TEMPLATES/active_topics.md"  "$AICLONE_HOME/active_topics.md"
+copy_if_missing "$TEMPLATES/config.json"       "$AICLONE_HOME/config.json"
 
 if ! fdesetup status 2>/dev/null | grep -q "FileVault is On"; then
   echo ""

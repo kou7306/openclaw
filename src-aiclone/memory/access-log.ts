@@ -1,24 +1,26 @@
 import type { DatabaseSync } from "node:sqlite";
 
-export type AccessVia = "recall" | "get_recent" | "get_related";
+export type AccessVia = "recall_fast" | "recall_deep" | "get_recent" | "get_related";
 
 export function logAccess(
   db: DatabaseSync,
   entry: {
-    fact_id?: string;
+    element_id?: string;
     short_id?: string;
     session_id?: string;
     via: AccessVia;
+    mode?: "fast" | "deep";
   },
 ): void {
   db.prepare(
-    `INSERT INTO ai_memory_access_log(fact_id, short_id, session_id, via, accessed_at)
-     VALUES(?, ?, ?, ?, ?)`,
+    `INSERT INTO ai_memory_access_log(element_id, short_id, session_id, via, mode, accessed_at)
+     VALUES(?, ?, ?, ?, ?, ?)`,
   ).run(
-    entry.fact_id ?? null,
+    entry.element_id ?? null,
     entry.short_id ?? null,
     entry.session_id ?? null,
     entry.via,
+    entry.mode ?? null,
     Date.now(),
   );
 }

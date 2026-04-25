@@ -20,6 +20,24 @@
     "cost_limit_usd_per_day": 5.0,
     "cost_limit_usd_per_month": 100.0
   },
+  "recall": {
+    "default_mode": "fast",
+    "deep_threshold_keywords": [
+      "原因",
+      "傾向",
+      "整理",
+      "分析",
+      "比較",
+      "総合",
+      "パターン",
+      "自己分析",
+      "振り返り",
+      "過去",
+      "長期"
+    ],
+    "fast_top_themes_per_domain": 2,
+    "fast_top_elements_per_theme": 8
+  },
   "heartbeat": {
     "enabled": true,
     "interval_seconds": 2700

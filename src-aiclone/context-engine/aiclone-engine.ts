@@ -9,30 +9,41 @@ import type {
   IngestResult,
 } from "../../src/context-engine/types.js";
 import {
+  ensureSeedDomains,
   getContextBlocks,
   getRecentShortMemories,
   getRelatedShortMemories,
+  listDomainsForIndex,
   logAccess,
-  recall,
+  routeRecall,
+  type DomainThemeSelector,
   type EmbedFn,
   type RecallParams,
 } from "../memory/index.js";
 import { buildSystemPromptAddition, buildToolDeclarations } from "./assemble.js";
+import { createIntentResolver } from "./intent.js";
 
 export type AiCloneEngineDeps = {
   db: DatabaseSync;
   embed: EmbedFn;
   aicloneHome: string;
+  selectDomainsAndThemes: DomainThemeSelector;
+  deepKeywords?: string[];
 };
 
 export class AiCloneEngine implements ContextEngine {
   readonly info: ContextEngineInfo = {
     id: "aiclone",
     name: "AI Clone Context Engine",
-    version: "0.1.0",
+    version: "0.2.0",
   };
 
-  constructor(private readonly deps: AiCloneEngineDeps) {}
+  private readonly classifyMode: ReturnType<typeof createIntentResolver>;
+
+  constructor(private readonly deps: AiCloneEngineDeps) {
+    this.classifyMode = createIntentResolver({ deepKeywords: deps.deepKeywords });
+    ensureSeedDomains(deps.db);
+  }
 
   async bootstrap(_params: {
     sessionId: string;
@@ -48,9 +59,13 @@ export class AiCloneEngine implements ContextEngine {
     prompt?: string;
   }): Promise<AssembleResult> {
     const blocks = await getContextBlocks(this.deps.aicloneHome);
-    const systemPromptAddition = buildSystemPromptAddition(blocks);
+    const domains = listDomainsForIndex(this.deps.db, 8);
+    const recentThemes = listRecentThemes(this.deps.db, 6);
+    const systemPromptAddition = buildSystemPromptAddition(blocks, {
+      domains,
+      recentThemes,
+    });
     const _toolDecls = buildToolDeclarations();
-    // NOTE(impl): toolDecls を upstream の tool registry と合流させる
     return {
       messages: params.messages,
       estimatedTokens: estimateTokens(systemPromptAddition),
@@ -63,7 +78,6 @@ export class AiCloneEngine implements ContextEngine {
     message: AgentMessage;
     isHeartbeat?: boolean;
   }): Promise<IngestResult> {
-    // NOTE(impl): 会話中の同期圧縮は避け、dreaming 側で chunk -> short_memory + fact を生成する
     return { ingested: false };
   }
 
@@ -74,7 +88,6 @@ export class AiCloneEngine implements ContextEngine {
     prePromptMessageCount: number;
     isHeartbeat?: boolean;
   }): Promise<void> {
-    // NOTE(impl): messages の tool_use 結果から accessed fact_ids / short_ids を抽出し logAccess する
     void params;
   }
 
@@ -89,7 +102,15 @@ export class AiCloneEngine implements ContextEngine {
   async callTool(name: string, args: unknown): Promise<unknown> {
     switch (name) {
       case "recall":
-        return recall(this.deps.db, this.deps.embed, args as RecallParams);
+        return routeRecall(
+          {
+            db: this.deps.db,
+            embed: this.deps.embed,
+            selectDomainsAndThemes: this.deps.selectDomainsAndThemes,
+            classifyMode: this.classifyMode,
+          },
+          args as RecallParams,
+        );
       case "get_recent":
         return getRecentShortMemories(this.deps.db, args as { days: number; limit?: number });
       case "get_related":
@@ -99,16 +120,43 @@ export class AiCloneEngine implements ContextEngine {
     }
   }
 
-  logToolAccess(params: { fact_ids?: string[]; short_ids?: string[]; session_id?: string }): void {
-    for (const factId of params.fact_ids ?? []) {
-      logAccess(this.deps.db, { fact_id: factId, session_id: params.session_id, via: "recall" });
+  logToolAccess(params: {
+    element_ids?: string[];
+    short_ids?: string[];
+    session_id?: string;
+    mode?: "fast" | "deep";
+  }): void {
+    const via = params.mode === "deep" ? "recall_deep" : "recall_fast";
+    for (const elementId of params.element_ids ?? []) {
+      logAccess(this.deps.db, {
+        element_id: elementId,
+        session_id: params.session_id,
+        via,
+        mode: params.mode,
+      });
     }
     for (const shortId of params.short_ids ?? []) {
-      logAccess(this.deps.db, { short_id: shortId, session_id: params.session_id, via: "recall" });
+      logAccess(this.deps.db, {
+        short_id: shortId,
+        session_id: params.session_id,
+        via,
+        mode: params.mode,
+      });
     }
   }
 }
 
 function estimateTokens(text: string): number {
   return Math.ceil(text.length / 3.5);
+}
+
+function listRecentThemes(db: DatabaseSync, limit: number): string[] {
+  const rows = db
+    .prepare(
+      `SELECT name FROM ai_themes
+       ORDER BY last_used_at DESC NULLS LAST, usage_count DESC
+       LIMIT ?`,
+    )
+    .all(limit) as Array<{ name: string }>;
+  return rows.map((r) => r.name);
 }

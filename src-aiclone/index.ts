@@ -1,6 +1,6 @@
 export * as memory from "./memory/index.js";
 export * as heartbeat from "./heartbeat/index.js";
-export { registerAiCloneContextEngine, AiCloneEngine } from "./context-engine/index.js";
+export { AiCloneEngine, type AiCloneEngineDeps, createIntentResolver } from "./context-engine/index.js";
 export {
   runAiCloneDreaming,
   type DreamingPhase,

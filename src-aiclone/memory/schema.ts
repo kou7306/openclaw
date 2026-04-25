@@ -27,35 +27,63 @@ const DDL_STATEMENTS: string[] = [
   `CREATE INDEX IF NOT EXISTS idx_ai_short_chunk   ON ai_short_memories(chunk_id)`,
   `CREATE INDEX IF NOT EXISTS idx_ai_short_created ON ai_short_memories(created_at)`,
 
-  `CREATE TABLE IF NOT EXISTS ai_facts (
-     fact_id    TEXT PRIMARY KEY,
-     short_id   TEXT NOT NULL,
-     chunk_id   TEXT NOT NULL,
-     fact_text  TEXT NOT NULL,
-     fact_type  TEXT,
-     created_at INTEGER NOT NULL
+  `CREATE TABLE IF NOT EXISTS ai_semantic_elements (
+     element_id   TEXT PRIMARY KEY,
+     short_id     TEXT NOT NULL,
+     chunk_id     TEXT NOT NULL,
+     element_type TEXT NOT NULL,
+     text         TEXT NOT NULL,
+     importance   REAL NOT NULL DEFAULT 0.5,
+     created_at   INTEGER NOT NULL
    )`,
-  `CREATE INDEX IF NOT EXISTS idx_ai_facts_short ON ai_facts(short_id)`,
-  `CREATE INDEX IF NOT EXISTS idx_ai_facts_type  ON ai_facts(fact_type)`,
+  `CREATE INDEX IF NOT EXISTS idx_ai_elem_short ON ai_semantic_elements(short_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_ai_elem_type  ON ai_semantic_elements(element_type)`,
+
+  `CREATE TABLE IF NOT EXISTS ai_domains (
+     domain_id    TEXT PRIMARY KEY,
+     name         TEXT UNIQUE NOT NULL,
+     description  TEXT,
+     usage_count  INTEGER NOT NULL DEFAULT 0,
+     last_used_at INTEGER
+   )`,
 
   `CREATE TABLE IF NOT EXISTS ai_themes (
-     theme_id      TEXT PRIMARY KEY,
-     name          TEXT UNIQUE NOT NULL,
-     usage_count   INTEGER NOT NULL DEFAULT 0,
-     last_used_at  INTEGER
+     theme_id     TEXT PRIMARY KEY,
+     domain_id    TEXT NOT NULL,
+     name         TEXT NOT NULL,
+     usage_count  INTEGER NOT NULL DEFAULT 0,
+     last_used_at INTEGER,
+     UNIQUE(domain_id, name)
    )`,
+  `CREATE INDEX IF NOT EXISTS idx_ai_themes_domain ON ai_themes(domain_id)`,
+
   `CREATE TABLE IF NOT EXISTS ai_memory_themes (
      chunk_id  TEXT NOT NULL,
      theme_id  TEXT NOT NULL,
      PRIMARY KEY (chunk_id, theme_id)
    )`,
+  `CREATE INDEX IF NOT EXISTS idx_ai_memory_themes_theme ON ai_memory_themes(theme_id)`,
+
+  `CREATE TABLE IF NOT EXISTS ai_entities (
+     entity_id    TEXT PRIMARY KEY,
+     name         TEXT UNIQUE NOT NULL,
+     kind         TEXT,
+     usage_count  INTEGER NOT NULL DEFAULT 0,
+     last_used_at INTEGER
+   )`,
+  `CREATE TABLE IF NOT EXISTS ai_memory_entities (
+     chunk_id  TEXT NOT NULL,
+     entity_id TEXT NOT NULL,
+     PRIMARY KEY (chunk_id, entity_id)
+   )`,
 
   `CREATE TABLE IF NOT EXISTS ai_memory_access_log (
      access_id   INTEGER PRIMARY KEY AUTOINCREMENT,
-     fact_id     TEXT,
+     element_id  TEXT,
      short_id    TEXT,
      session_id  TEXT,
      via         TEXT,
+     mode        TEXT,
      accessed_at INTEGER NOT NULL
    )`,
   `CREATE INDEX IF NOT EXISTS idx_ai_access_session ON ai_memory_access_log(session_id)`,
@@ -68,21 +96,21 @@ const DDL_STATEMENTS: string[] = [
      PRIMARY KEY (from_short_id, to_short_id, link_type)
    )`,
 
-  `CREATE VIRTUAL TABLE IF NOT EXISTS ai_facts_fts USING fts5(
-     fact_id UNINDEXED,
-     fact_text,
-     content='ai_facts',
+  `CREATE VIRTUAL TABLE IF NOT EXISTS ai_elements_fts USING fts5(
+     element_id UNINDEXED,
+     text,
+     content='ai_semantic_elements',
      content_rowid='rowid'
    )`,
-  `CREATE TRIGGER IF NOT EXISTS ai_facts_ai AFTER INSERT ON ai_facts BEGIN
-     INSERT INTO ai_facts_fts(rowid, fact_id, fact_text) VALUES (new.rowid, new.fact_id, new.fact_text);
+  `CREATE TRIGGER IF NOT EXISTS ai_elements_ai AFTER INSERT ON ai_semantic_elements BEGIN
+     INSERT INTO ai_elements_fts(rowid, element_id, text) VALUES (new.rowid, new.element_id, new.text);
    END`,
-  `CREATE TRIGGER IF NOT EXISTS ai_facts_ad AFTER DELETE ON ai_facts BEGIN
-     INSERT INTO ai_facts_fts(ai_facts_fts, rowid, fact_id, fact_text) VALUES('delete', old.rowid, old.fact_id, old.fact_text);
+  `CREATE TRIGGER IF NOT EXISTS ai_elements_ad AFTER DELETE ON ai_semantic_elements BEGIN
+     INSERT INTO ai_elements_fts(ai_elements_fts, rowid, element_id, text) VALUES('delete', old.rowid, old.element_id, old.text);
    END`,
-  `CREATE TRIGGER IF NOT EXISTS ai_facts_au AFTER UPDATE ON ai_facts BEGIN
-     INSERT INTO ai_facts_fts(ai_facts_fts, rowid, fact_id, fact_text) VALUES('delete', old.rowid, old.fact_id, old.fact_text);
-     INSERT INTO ai_facts_fts(rowid, fact_id, fact_text) VALUES (new.rowid, new.fact_id, new.fact_text);
+  `CREATE TRIGGER IF NOT EXISTS ai_elements_au AFTER UPDATE ON ai_semantic_elements BEGIN
+     INSERT INTO ai_elements_fts(ai_elements_fts, rowid, element_id, text) VALUES('delete', old.rowid, old.element_id, old.text);
+     INSERT INTO ai_elements_fts(rowid, element_id, text) VALUES (new.rowid, new.element_id, new.text);
    END`,
 ];
 
@@ -96,8 +124,8 @@ export function ensureAiCloneSchema(db: DatabaseSync, embedding: EmbeddingMeta):
 
 function ensureVecTables(db: DatabaseSync, dim: number): void {
   db.prepare(
-    `CREATE VIRTUAL TABLE IF NOT EXISTS ai_fact_vec USING vec0(
-       fact_id TEXT PRIMARY KEY,
+    `CREATE VIRTUAL TABLE IF NOT EXISTS ai_element_vec USING vec0(
+       element_id TEXT PRIMARY KEY,
        embedding FLOAT[${dim}]
      )`,
   ).run();

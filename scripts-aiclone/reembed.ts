@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// reembed.ts — embedding モデルを差し替えた後に全 fact / short_memory を再埋め込みする
+// reembed.ts — embedding モデルを差し替えた後に全 element / short_memory を再埋め込みする
 
 import { readFile } from "node:fs/promises";
 import path from "node:path";
@@ -21,10 +21,10 @@ async function main() {
 
   console.log(`reembed target: ${embedding.provider} / dim=${embedding.dimension}`);
   console.log("dropping vec tables...");
-  db.prepare(`DROP TABLE IF EXISTS ai_fact_vec`).run();
+  db.prepare(`DROP TABLE IF EXISTS ai_element_vec`).run();
   db.prepare(`DROP TABLE IF EXISTS ai_summary_vec`).run();
   db.prepare(
-    `CREATE VIRTUAL TABLE ai_fact_vec    USING vec0(fact_id  TEXT PRIMARY KEY, embedding FLOAT[${embedding.dimension}])`,
+    `CREATE VIRTUAL TABLE ai_element_vec USING vec0(element_id TEXT PRIMARY KEY, embedding FLOAT[${embedding.dimension}])`,
   ).run();
   db.prepare(
     `CREATE VIRTUAL TABLE ai_summary_vec USING vec0(short_id TEXT PRIMARY KEY, embedding FLOAT[${embedding.dimension}])`,
@@ -35,11 +35,9 @@ async function main() {
     throw new Error("embed not wired in skeleton");
   };
 
-  const facts = db.prepare(`SELECT fact_id, short_id, fact_text FROM ai_facts`).all() as Array<{
-    fact_id: string;
-    short_id: string;
-    fact_text: string;
-  }>;
+  const elements = db
+    .prepare(`SELECT element_id, short_id, element_type, text FROM ai_semantic_elements`)
+    .all() as Array<{ element_id: string; short_id: string; element_type: string; text: string }>;
   const summaries = db.prepare(`SELECT short_id, summary FROM ai_short_memories`).all() as Array<{
     short_id: string;
     summary: string;
@@ -54,13 +52,13 @@ async function main() {
     );
   }
 
-  console.log(`re-embedding ${facts.length} facts...`);
+  console.log(`re-embedding ${elements.length} semantic elements...`);
   const summaryById = new Map(summaries.map((s) => [s.short_id, s.summary]));
-  for (const f of facts) {
-    const context = summaryById.get(f.short_id) ?? "";
-    const vec = await embed(`${context}\n\n${f.fact_text}`);
-    db.prepare(`INSERT INTO ai_fact_vec(fact_id, embedding) VALUES(?, ?)`).run(
-      f.fact_id,
+  for (const el of elements) {
+    const context = summaryById.get(el.short_id) ?? "";
+    const vec = await embed(`${context}\n\n[${el.element_type}] ${el.text}`);
+    db.prepare(`INSERT INTO ai_element_vec(element_id, embedding) VALUES(?, ?)`).run(
+      el.element_id,
       new Uint8Array(vec.buffer, vec.byteOffset, vec.byteLength),
     );
   }
